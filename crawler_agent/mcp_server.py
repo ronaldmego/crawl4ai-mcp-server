@@ -18,6 +18,7 @@ from urllib.parse import urlparse
 from crawl4ai import AsyncWebCrawler
 
 from .safety import require_public_http_url
+from .adaptive_strategy import should_continue_crawling
 
 
 server = Server("crawl4ai-mcp")
@@ -45,6 +46,7 @@ class CrawlArgs(BaseModel):
     same_domain_only: bool = True
     include_patterns: List[str] = Field(default_factory=list)
     exclude_patterns: List[str] = Field(default_factory=list)
+    adaptive: bool = Field(default=False, description="Enable adaptive crawling to stop when sufficient info is gathered")
     crawler: Dict[str, Any] = Field(default_factory=dict)
     browser: Dict[str, Any] = Field(default_factory=dict)
     script: Optional[str] = None
@@ -165,6 +167,13 @@ async def _run_crawl(args: CrawlArgs) -> CrawlResult:
                     page_links.append(candidate)
 
             pages.append(CrawlPage(url=url, markdown=result.markdown or "", links=page_links))
+            
+            # Adaptive crawling: check if we should continue
+            if args.adaptive:
+                page_contents = [page.markdown for page in pages]
+                if not should_continue_crawling(page_contents, args.max_pages):
+                    break
+            
             if depth + 1 <= args.max_depth:
                 for href in page_links:
                     if len(pages) >= args.max_pages:

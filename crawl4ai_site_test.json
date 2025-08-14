@@ -1,0 +1,18 @@
+{
+  "crawl4ai_docs_test": {
+    "url": "https://docs.crawl4ai.com/",
+    "pages_crawled": 1,
+    "total_content_chars": 11338,
+    "total_links": 2,
+    "avg_content_per_page": 11338,
+    "pages_detail": [
+      {
+        "url": "https://docs.crawl4ai.com/",
+        "content_length": 11338,
+        "links_count": 2,
+        "content_preview": "[Crawl4AI Documentation (v0.7.x)](https://docs.crawl4ai.com/)\n  * [ Home ](https://docs.crawl4ai.com/)\n  * [ Ask AI ](https://docs.crawl4ai.com/core/ask-ai/)\n  * [ Quick Start ](https://docs.crawl4ai.com/core/quickstart/)\n  * [ Code Examples ](https://docs.crawl4ai.com/core/examples/)\n  * [ Search ](https://docs.crawl4ai.com/)\n\n\n\u00d7\n  * Home\n  * [Ask AI](https://docs.crawl4ai.com/core/ask-ai/)\n  * [Quick Start](https://docs.crawl4ai.com/core/quickstart/)\n  * [Code Examples](https://docs.crawl4ai.c"
+      }
+    ],
+    "timestamp": "2025-08-15T01:52:06.149012"
+  }
+}

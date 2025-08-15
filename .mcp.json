@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "crawl4ai-mcp": {
+      "type": "stdio",
+      "command": "/Users/sadiuysal/Documents/GitHub/crawler_agent/.venv/bin/python",
+      "args": [
+        "-m",
+        "crawler_agent.mcp_server"
+      ],
+      "env": {
+        "PWD": "/Users/sadiuysal/Documents/GitHub/crawler_agent"
+      }
+    }
+  }
+}

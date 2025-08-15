@@ -1,10 +1,12 @@
-# Crawler Agent
+# Crawl4AI MCP Server
 
-A Model Context Protocol (MCP) server that exposes [Crawl4AI](https://docs.crawl4ai.com/) functionality as tools for AI agents, similar to Firecrawl's scrape and crawl capabilities.
+🕷️ **A lightweight Model Context Protocol (MCP) server that exposes [Crawl4AI](https://docs.crawl4ai.com/) web scraping and crawling capabilities as tools for AI agents.**
+
+Similar to Firecrawl's API but self-hosted and free. Perfect for integrating web scraping into your AI workflows with OpenAI Agents SDK, Cursor, Claude Code, and other MCP-compatible tools.
 
 ## Features
 
-- **🔧 MCP Tools**: Exposes `scrape` and `crawl` tools via stdio MCP server
+- **🔧 MCP Tools**: Exposes 4 powerful tools: `scrape`, `crawl`, `crawl_site`, `crawl_sitemap` via stdio MCP server
 - **🌐 Web Scraping**: Single-page scraping with markdown extraction
 - **🕷️ Web Crawling**: Multi-page breadth-first crawling with depth control
 - **🧠 Adaptive Crawling**: Smart crawling that stops when sufficient content is gathered
@@ -12,14 +14,14 @@ A Model Context Protocol (MCP) server that exposes [Crawl4AI](https://docs.crawl
 - **📱 Agent Ready**: Works with OpenAI Agents SDK, Cursor, and Claude Code
 - **⚡ Fast**: Powered by Playwright and Crawl4AI's optimized extraction
 
-## Quick Start
+## 🚀 Quick Start
 
 ### 1. Installation
 
 ```bash
 # Clone and setup
-git clone <repo-url>
-cd crawler_agent
+git clone https://github.com/YOUR_USERNAME/crawl4ai-mcp-server.git
+cd crawl4ai-mcp-server
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
@@ -48,7 +50,7 @@ export OPENAI_API_KEY="your-key-here"
 python -m crawler_agent.agents_example
 ```
 
-## Tools Reference
+## 🛠️ Tools Reference
 
 The MCP server exposes 4 production-ready tools with content hiding features:
 
@@ -170,7 +172,7 @@ Sitemap-based crawling with persistence (always requires output_dir).
 }
 ```
 
-## Usage Examples
+## 💡 Usage Examples
 
 ### Standalone MCP Server
 
@@ -247,7 +249,7 @@ This project supports both **Cursor** and **Claude Code** with synchronized conf
 - **Consistent Workflows**: Virtual environment protocols, testing commands, and development standards are identical
 - **Cross-Compatible**: Projects work seamlessly whether using Cursor or Claude Code
 
-## Configuration
+## ⚙️ Configuration
 
 ### Environment Variables
 
@@ -263,7 +265,7 @@ The server blocks these URL patterns by default:
 - `file://` schemes
 - `.local`, `.internal`, `.lan` domains
 
-## Advanced Features
+## 🚀 Advanced Features
 
 ### Adaptive Crawling
 
@@ -297,7 +299,7 @@ await session.call_tool("scrape", {
 })
 ```
 
-## Architecture
+## 🏗️ Architecture
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
@@ -312,7 +314,7 @@ await session.call_tool("scrape", {
                        └──────────────────┘
 ```
 
-## Development
+## 🔧 Development
 
 ### Project Structure
 
@@ -348,13 +350,29 @@ python -m crawler_agent.agents_example
 5. **Safety**: Ensure security guards are maintained for all new features
 6. **Dual Compatibility**: Verify changes work in both Cursor and Claude Code environments
 
-## References
+## 📚 References
 
 - [Crawl4AI Documentation](https://docs.crawl4ai.com/)
 - [Model Context Protocol](https://modelcontextprotocol.io/introduction)
 - [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/mcp/)
 - [MCP Tools Reference](https://openai.github.io/openai-agents-python/tools/)
 
-## License
+## 📄 License
 
-MIT License - see LICENSE file for details.
+MIT License - see [LICENSE](LICENSE) file for details.
+
+### 🙏 Acknowledgments
+
+This project uses [Crawl4AI](https://github.com/unclecode/crawl4ai) by [UncleCode](https://github.com/unclecode) for web scraping capabilities. Crawl4AI is an excellent open-source LLM-friendly web crawler and scraper.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
+## ⭐ Support
+
+If this project helped you, please give it a star! It helps others discover the project.
+
+## 🐛 Issues
+
+Found a bug or have a feature request? Please [open an issue](https://github.com/YOUR_USERNAME/crawl4ai-mcp-server/issues).

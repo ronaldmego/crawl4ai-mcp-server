@@ -50,24 +50,37 @@ python -m crawler_agent.agents_example
 
 ## Tools Reference
 
+The MCP server exposes 4 production-ready tools with content hiding features:
+
 ### `scrape`
 
 Fetch a single URL and return markdown content.
 
 **Arguments:**
 - `url` (required): The URL to scrape
+- `output_dir` (optional): If provided, persists content to disk and returns metadata only
 - `crawler`: Optional Crawl4AI crawler config overrides  
 - `browser`: Optional Crawl4AI browser config overrides
 - `script`: Optional C4A-Script for page interaction
 - `timeout_sec`: Request timeout (default: 45s, max: 600s)
 
-**Returns:**
+**Returns (without output_dir):**
 ```json
 {
   "url": "https://example.com",
   "markdown": "# Page Title\n\nContent...",
   "links": ["https://example.com/page1", "..."],
   "metadata": {}
+}
+```
+
+**Returns (with output_dir):**
+```json
+{
+  "run_id": "scrape_20250815_122811_4fb188",
+  "file_path": "/path/to/output/pages/example.com_index.md",
+  "manifest_path": "/path/to/output/manifest.json",
+  "bytes_written": 230
 }
 ```
 
@@ -83,9 +96,10 @@ Multi-page breadth-first crawling with filtering and adaptive stopping.
 - `include_patterns`: Regex patterns URLs must match
 - `exclude_patterns`: Regex patterns to exclude URLs
 - `adaptive`: Enable adaptive crawling (default: false)
+- `output_dir` (optional): If provided, persists content to disk and returns metadata only
 - `crawler`, `browser`, `script`, `timeout_sec`: Same as scrape
 
-**Returns:**
+**Returns (without output_dir):**
 ```json
 {
   "start_url": "https://example.com",
@@ -97,6 +111,62 @@ Multi-page breadth-first crawling with filtering and adaptive stopping.
     }
   ],
   "total_pages": 3
+}
+```
+
+**Returns (with output_dir):**
+```json
+{
+  "run_id": "crawl_20250815_122828_464944",
+  "pages_ok": 3,
+  "pages_failed": 0,
+  "manifest_path": "/path/to/output/manifest.json",
+  "bytes_written": 690
+}
+```
+
+### `crawl_site`
+
+Comprehensive site crawling with persistence (always requires output_dir).
+
+**Arguments:**
+- `entry_url` (required): Starting URL for site crawl
+- `output_dir` (required): Directory to persist results
+- `max_depth`: Maximum crawl depth (default: 2, max: 6)
+- `max_pages`: Maximum pages to crawl (default: 200, max: 5000)
+- Additional config options for filtering and performance
+
+**Returns:**
+```json
+{
+  "run_id": "site_20250815_122851_0e2455",
+  "output_dir": "/path/to/output",
+  "manifest_path": "/path/to/output/manifest.json",
+  "pages_ok": 15,
+  "pages_failed": 2,
+  "bytes_written": 45672
+}
+```
+
+### `crawl_sitemap`
+
+Sitemap-based crawling with persistence (always requires output_dir).
+
+**Arguments:**
+- `sitemap_url` (required): URL to sitemap.xml
+- `output_dir` (required): Directory to persist results  
+- `max_entries`: Maximum sitemap entries to process (default: 1000)
+- Additional config options for filtering and performance
+
+**Returns:**
+```json
+{
+  "run_id": "sitemap_20250815_123006_667d71",
+  "output_dir": "/path/to/output",
+  "manifest_path": "/path/to/output/manifest.json", 
+  "pages_ok": 25,
+  "pages_failed": 0,
+  "bytes_written": 123456
 }
 ```
 
@@ -157,9 +227,25 @@ async with MCPServerStdio(
     )
 ```
 
-### Cursor/Claude Code
+### Cursor/Claude Code Integration
 
-The MCP server works automatically with Cursor and Claude Code when they detect the `.cursorrules` file in your project.
+This project supports both **Cursor** and **Claude Code** with synchronized configuration:
+
+#### Cursor Setup
+- Uses `.cursorrules` for AI assistant behavior and project guidance
+- Automatic MCP tool detection and integration
+- Project-specific rules and workflow guidance
+
+#### Claude Code Setup  
+- Uses `CLAUDE.md` for comprehensive project context and memory bank
+- Native MCP integration via `mcp__crawl4ai-mcp__*` tool calls
+- Global config: `~/.claude/claude_desktop_config.json` or project config: `.mcp.json`
+
+#### Dual Environment Features
+- **Synchronized Documentation**: Changes to documentation are maintained across both environments
+- **Shared MCP Configuration**: Both use the same MCP server and tool schemas
+- **Consistent Workflows**: Virtual environment protocols, testing commands, and development standards are identical
+- **Cross-Compatible**: Projects work seamlessly whether using Cursor or Claude Code
 
 ## Configuration
 
@@ -255,10 +341,12 @@ python -m crawler_agent.agents_example
 
 ### Contributing
 
-1. Follow the `.cursorrules` for code style
-2. Add tests for new features
-3. Update this README for new tools or options
-4. Ensure safety guards are maintained
+1. **Environment Setup**: Always activate `.venv` before development work
+2. **Documentation**: Follow the Documentation Memory Rule - synchronize changes across CLAUDE.md, .cursorrules, and README.md
+3. **Code Style**: Follow `.cursorrules` for Cursor or `CLAUDE.md` for Claude Code
+4. **Testing**: Use `python -m crawler_agent.smoke_client` for validation
+5. **Safety**: Ensure security guards are maintained for all new features
+6. **Dual Compatibility**: Verify changes work in both Cursor and Claude Code environments
 
 ## References
 

@@ -1,8 +1,17 @@
 # Project rules for Cursor in `crawler_agent`
 
+## Documentation Memory Rule (CRITICAL)
+**ALWAYS remember**: When ANY documentation file is modified (CLAUDE.md, README.md, .cursorrules, etc.), you MUST:
+1. **Read the current version** of all related documentation files first
+2. **Synchronize changes** across Claude Code (CLAUDE.md) and Cursor (.cursorrules) configurations  
+3. **Update project knowledge** to reflect any new patterns, tools, or workflows
+4. **Verify consistency** between documentation and actual implementation
+5. **Document the change** in git commit messages as a documentation update
+
 ## Mission
 - Build and expose Crawl4AI functionality as MCP tools consumable by OpenAI Agents SDK, Cursor, and Cloud Code.
 - Deliver small, safe, reversible changes with high reliability and clear observability.
+- Maintain consistency with Claude Code environment via synchronized documentation.
 
 ## Operating mode
 - Be a senior engineer: propose a short plan, then execute.
@@ -51,19 +60,53 @@
 - Respect site policies; provide robots.txt compliance modes.
 - Redact secrets; never log credentials or PII; sanitize outputs forwarded to LLMs.
 
-## MCP + Crawl4AI specifics
-- Tools to expose initially: `crawl_url`, `deep_crawl`, `adaptive_crawl` (small, composable surface).
-- Map args to Crawl4AI configs (`crawler_config`, `browser_config`, optional C4A-Script).
-- Outputs: structured JSON with `markdown`, `links`, `metadata`; consider chunking options.
-- Strict schemas: enable strict argument validation and deterministic tool behavior.
+## MCP + Crawl4AI specifics (Current Implementation)
+- **4 Production Tools**: `scrape`, `crawl`, `crawl_site`, `crawl_sitemap` 
+- **Server Location**: `crawler_agent/mcp_server.py` (518 lines, fully implemented)
+- **Tool Schemas**:
+  - `scrape(url, output_dir?)` → Returns content OR persists with metadata
+  - `crawl(seed_url, max_depth?, max_pages?, output_dir?)` → Multi-page crawling  
+  - `crawl_site(entry_url, output_dir, ...)` → Full site crawling (always persists)
+  - `crawl_sitemap(sitemap_url, output_dir, ...)` → Sitemap-based crawling (always persists)
+- **Content Hiding**: Tools with `output_dir` persist to disk and return metadata only (avoids context bloat)
+- **Validation**: Use `python -m crawler_agent.smoke_client` for testing
 
 ## Validation steps (typical)
 - Lint/tests/build minimal run; for MCP stdio server, a smoke run that lists tools and runs `crawl_url` against a simple page.
 - Capture outputs and errors; fail fast with actionable messages.
 
+## Virtual Environment Protocol (CRITICAL)
+- **ALWAYS activate `.venv` before ANY operation**: `source .venv/bin/activate`
+- **Required for**: package installation, running servers, testing, development commands
+- **Location**: `/Users/sadiuysal/Documents/GitHub/crawler_agent/.venv`
+- **Never run Python commands without venv activation** - this causes ModuleNotFoundError
+
+## Development Commands (All require venv)
+```bash
+# Always start with:
+source .venv/bin/activate
+
+# Test MCP server:
+python -m crawler_agent.smoke_client
+
+# Run server directly:
+python -m crawler_agent.mcp_server
+
+# Install dependencies:
+pip install -r requirements.txt
+```
+
+## Claude Code Integration Notes
+- This project supports both Cursor and Claude Code via synchronized documentation
+- Claude Code users: See `@CLAUDE.md` for full project context and memory bank
+- MCP integration: Native tool calling via `mcp__crawl4ai-mcp__*` functions
+- Both environments share `.mcp.json` configuration for project-scoped servers
+
 ## Documentation & citations
 - When referencing external content, cite links inline using Markdown.
 - Update project docs/runbooks when changing public contracts, transports, or observability.
+- **Always synchronize changes** between CLAUDE.md and .cursorrules files.
 
 ## Commit etiquette
 - Clear, scoped commit messages; include rationale and any rollout/rollback notes when changing contracts or infra.
+- Mark documentation updates clearly when modifying CLAUDE.md, .cursorrules, or README.md.

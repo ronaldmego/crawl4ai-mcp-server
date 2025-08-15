@@ -136,7 +136,63 @@ pip install -r requirements.txt
 - `crawl_site(entry_url, output_dir, config...)` → `{run_id, output_dir, manifest_path, stats}` (always persists)
 - `crawl_sitemap(sitemap_url, output_dir, config...)` → `{run_id, output_dir, manifest_path, stats}` (always persists)
 
+## Documentation Memory Rule (CRITICAL)
+**ALWAYS remember**: When ANY documentation file is modified (CLAUDE.md, README.md, .cursorrules, etc.), you MUST:
+1. **Read the current version** of all related documentation files first
+2. **Synchronize changes** across Claude Code (CLAUDE.md) and Cursor (.cursorrules) configurations  
+3. **Update project knowledge** in this memory bank section to reflect any new patterns, tools, or workflows
+4. **Verify consistency** between documentation and actual implementation
+5. **Document the change** in git commit messages as a documentation update
+
+This ensures both Claude Code and Cursor users have consistent, up-to-date guidance.
+
+## Cursor Integration & Dual Environment Support
+
+### Configuration Files
+- **Claude Code**: Uses `CLAUDE.md` (this file) for project context and rules
+- **Cursor**: Uses `.cursorrules` for AI assistant behavior and project-specific guidance
+- **Both**: Share common MCP integration via `.mcp.json` (project-scoped servers)
+
+### Synchronized Rules & Standards
+The following rules are maintained across both environments:
+
+#### Development Protocol
+- **Virtual Environment**: ALWAYS activate `.venv` before ANY Python operation
+- **MCP Server**: Located at `crawler_agent/mcp_server.py` with 4 tools (`scrape`, `crawl`, `crawl_site`, `crawl_sitemap`)
+- **Testing**: Use `python -m crawler_agent.smoke_client` for validation
+- **Code Style**: Python 3.11+, strict typing, guard clauses, minimal diffs
+
+#### Tool Surface (Current Implementation)
+- `scrape(url, output_dir?)` → Returns content OR persists with metadata
+- `crawl(seed_url, max_depth?, max_pages?, output_dir?)` → Multi-page crawling
+- `crawl_site(entry_url, output_dir, ...)` → Full site crawling (always persists)
+- `crawl_sitemap(sitemap_url, output_dir, ...)` → Sitemap-based crawling (always persists)
+
+#### Security & Safety (Shared)
+- Block internal networks, localhost, RFC1918 addresses
+- Respect robots.txt modes and domain policies
+- Never log credentials/PII; sanitize outputs
+
+### Environment-Specific Features
+
+#### Claude Code Only
+- **MCP Integration**: Native tool calling via `mcp__crawl4ai-mcp__*` functions
+- **Config Location**: `~/.claude/claude_desktop_config.json` (global) or `.mcp.json` (project)
+- **Session Management**: Restart required after config changes
+
+#### Cursor Only  
+- **Project Rules**: `.cursorrules` defines behavior and workflow
+- **Inline Documentation**: Uses `@CLAUDE.md` references for context
+- **Git Integration**: Automatic commit message enhancement
+
+### Workflow Synchronization
+1. **Planning**: Both environments use todo lists and short numbered plans
+2. **Validation**: Run smoke tests and basic validation after changes
+3. **Documentation**: Update both CLAUDE.md and .cursorrules when changing workflows
+4. **Commits**: Use consistent commit message format with proper attribution
+
 ## Notes for Claude
 - Prefer concise edits and high-signal summaries.
 - If blocked on missing details (e.g., schema shape), propose 1–2 narrow options and proceed with the safest default.
 - Avoid long-running crawls; provide budgets and timeouts by default.
+- **When modifying documentation**: Apply changes to both CLAUDE.md and .cursorrules for consistency.

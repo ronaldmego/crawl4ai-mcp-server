@@ -76,10 +76,71 @@ You are a senior software engineer collaborating on `crawler_agent`. Your primar
 ## Development Environment Rules & Memory Bank
 
 ### Virtual Environment Protocol (CRITICAL)
-- **ALWAYS activate `.venv` before ANY operation**: `source .venv/bin/activate`
+- **ALWAYS activate virtual environment before ANY operation**: `source .venv/bin/activate` or `source venv/bin/activate`
 - **Required for**: package installation, running servers, testing, development commands
-- **Location**: `/Users/sadiuysal/Documents/GitHub/crawler_agent/.venv`
+- **Location**: `<project_root>/.venv` or `<project_root>/venv` (project-specific)
 - **Never run Python commands without venv activation** - this causes ModuleNotFoundError
+
+### Remote Repository Setup (For using in other projects)
+When using this MCP server from another repository:
+
+#### Option 1: Direct Git Installation
+```bash
+# From your target repository
+git clone https://github.com/sadiuysal/crawler_agent.git
+cd crawler_agent
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python -m playwright install chromium
+
+# Test the installation
+python -m crawler_agent.smoke_client
+```
+
+#### Option 2: Global MCP Server Configuration
+```bash
+# Install in a global location
+mkdir -p ~/.local/mcp-servers
+cd ~/.local/mcp-servers
+git clone https://github.com/sadiuysal/crawler_agent.git
+cd crawler_agent
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python -m playwright install chromium
+```
+
+#### Claude Code Configuration (Remote)
+Add to `~/.claude/claude_desktop_config.json`:
+```json
+{
+  "mcpServers": {
+    "crawl4ai-mcp": {
+      "command": "/path/to/crawler_agent/.venv/bin/python",
+      "args": ["-m", "crawler_agent.mcp_server"],
+      "cwd": "/path/to/crawler_agent"
+    }
+  }
+}
+```
+
+#### Project-Scoped Configuration (.mcp.json)
+For project-specific MCP servers, add to target repository:
+```json
+{
+  "mcpServers": {
+    "crawl4ai": {
+      "command": "python",
+      "args": ["-m", "crawler_agent.mcp_server"],
+      "cwd": "/path/to/crawler_agent",
+      "env": {
+        "PATH": "/path/to/crawler_agent/.venv/bin:${PATH}"
+      }
+    }
+  }
+}
+```
 
 ### MCP Server Implementation Status
 - **Server location**: `crawler_agent/mcp_server.py` (518 lines)

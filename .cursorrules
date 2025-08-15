@@ -76,10 +76,17 @@
 - Capture outputs and errors; fail fast with actionable messages.
 
 ## Virtual Environment Protocol (CRITICAL)
-- **ALWAYS activate `.venv` before ANY operation**: `source .venv/bin/activate`
+- **ALWAYS activate virtual environment before ANY operation**: `source .venv/bin/activate` or `source venv/bin/activate`
 - **Required for**: package installation, running servers, testing, development commands
-- **Location**: `/Users/sadiuysal/Documents/GitHub/crawler_agent/.venv`
+- **Location**: `<project_root>/.venv` or `<project_root>/venv` (project-specific)
 - **Never run Python commands without venv activation** - this causes ModuleNotFoundError
+
+## Remote MCP Server Usage
+When using this MCP server from other repositories:
+- **Installation**: Clone repository to global location (e.g., `~/.local/mcp-servers/`)
+- **Configuration**: Update MCP config with absolute paths to cloned repository
+- **Testing**: Use `python -m crawler_agent.smoke_client` to verify setup
+- **Documentation**: Copy `.cursorrules` and relevant sections to target repository
 
 ## Development Commands (All require venv)
 ```bash

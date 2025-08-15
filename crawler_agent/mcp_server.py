@@ -3,7 +3,13 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import time
+import os
+import sys
+import logging
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
 from pydantic import BaseModel, Field, HttpUrl
@@ -13,12 +19,35 @@ from mcp.server import Server, NotificationOptions
 from mcp.server.models import InitializationOptions
 import mcp.server.stdio
 
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
 
 from crawl4ai import AsyncWebCrawler
 
 from .safety import require_public_http_url
 from .adaptive_strategy import should_continue_crawling
+from .persistence import (
+    Manifest,
+    PageRecord,
+    append_jsonl,
+    append_links_csv,
+    ensure_run_dir,
+    generate_run_id,
+    persist_page_markdown,
+    update_totals,
+    write_manifest,
+    append_log_jsonl,
+)
+from .sitemap_utils import discover_sitemaps, parse_sitemap_xml, filter_urls, fetch_text
+
+# Configure stderr logging (stdout is reserved for MCP stdio messages)
+_LOG_LEVEL = os.getenv("CRAWL4AI_MCP_LOG", "INFO").upper()
+logger = logging.getLogger("crawl4ai_mcp")
+if not logger.handlers:
+    _h = logging.StreamHandler(sys.stderr)
+    _h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s"))
+    logger.addHandler(_h)
+logger.setLevel(_LOG_LEVEL)
+logger.propagate = False
 
 
 server = Server("crawl4ai-mcp")
@@ -65,8 +94,48 @@ class CrawlResult(BaseModel):
     total_pages: int
 
 
+class CrawlSiteArgs(BaseModel):
+    entry_url: HttpUrl
+    output_dir: str
+    max_depth: int = Field(ge=1, le=6, default=2)
+    max_pages: int = Field(ge=1, le=5000, default=200)
+    same_domain_only: bool = True
+    include_patterns: List[str] = Field(default_factory=list)
+    exclude_patterns: List[str] = Field(default_factory=list)
+    formats: List[str] = Field(default_factory=lambda: ["md", "jsonl"])  # md,jsonl,links_csv
+    adaptive: bool = False
+    respect_robots: str = Field(default="enforce")  # enforce|warn|ignore (placeholder)
+    politeness_delay_ms: int = 500
+    max_concurrency: int = 2
+    timeout_sec: int = 600
+
+
+class CrawlSitemapArgs(BaseModel):
+    sitemap_url: HttpUrl
+    output_dir: str
+    max_entries: int = 1000
+    include_patterns: List[str] = Field(default_factory=list)
+    exclude_patterns: List[str] = Field(default_factory=list)
+    formats: List[str] = Field(default_factory=lambda: ["md", "jsonl"])  # md,jsonl,links_csv
+    politeness_delay_ms: int = 500
+    max_concurrency: int = 2
+    timeout_sec: int = 900
+
+
+class CrawlPersistResult(BaseModel):
+    run_id: str
+    output_dir: str
+    manifest_path: str
+    pages_ok: int
+    pages_failed: int
+    bytes_written: int
+    started_at: str
+    finished_at: str | None
+
+
 @server.list_tools()
 async def list_tools() -> List[types.Tool]:
+    logger.debug("list_tools called")
     return [
         types.Tool(
             name="scrape",
@@ -84,6 +153,21 @@ async def list_tools() -> List[types.Tool]:
             ),
             inputSchema=CrawlArgs.model_json_schema(),
         ),
+        types.Tool(
+            name="crawl_site",
+            description=(
+                "Site crawler that persists results to disk. Returns manifest path and output directory. "
+                "Does not return page content to avoid context bloat."
+            ),
+            inputSchema=CrawlSiteArgs.model_json_schema(),
+        ),
+        types.Tool(
+            name="crawl_sitemap",
+            description=(
+                "Crawl URLs discovered from sitemap.xml/robots.txt. Persists results to disk and returns manifest path."
+            ),
+            inputSchema=CrawlSitemapArgs.model_json_schema(),
+        ),
     ]
 
 
@@ -93,9 +177,6 @@ async def _run_scrape(args: ScrapeArgs) -> ScrapeResult:
         result = await crawler.arun(
             url=str(args.url),
             script=args.script,
-            # If you need to map dicts to config objects later, do so here.
-            # crawler_config=CrawlerRunConfig(**args.crawler) if args.crawler else None,
-            # browser_config=BrowserConfig(**args.browser) if args.browser else None,
         )
     links = []
     raw_links = getattr(result, "links", []) or []
@@ -115,7 +196,6 @@ def _compile_patterns(patterns: List[str]) -> List[re.Pattern[str]]:
         try:
             compiled.append(re.compile(p))
         except re.error:
-            # Ignore invalid patterns
             continue
     return compiled
 
@@ -137,6 +217,33 @@ def _url_allowed(url: str, seed_host: str, same_domain_only: bool, include: List
     return True
 
 
+def _extract_links_from_result(base_url: str, result: Any) -> List[str]:
+    links: List[str] = []
+    raw_links = getattr(result, "links", []) or []
+    for link in raw_links:
+        if isinstance(link, str):
+            candidate = link
+        else:
+            candidate = link.get("href") or link.get("url")
+        if isinstance(candidate, str):
+            links.append(candidate)
+    # Also extract absolute URLs from markdown content
+    md = getattr(result, "markdown", "") or ""
+    if md:
+        for match in re.findall(r"https?://[^\s)\]]+", md):
+            links.append(match)
+    # Normalize and de-duplicate
+    dedup: List[str] = []
+    seen: Set[str] = set()
+    for u in links:
+        # Resolve relative links if any
+        abs_u = urljoin(base_url, u)
+        if abs_u not in seen:
+            seen.add(abs_u)
+            dedup.append(abs_u)
+    return dedup
+
+
 async def _run_crawl(args: CrawlArgs) -> CrawlResult:
     require_public_http_url(str(args.seed_url))
     seed_host = urlparse(str(args.seed_url)).hostname or ""
@@ -154,26 +261,16 @@ async def _run_crawl(args: CrawlArgs) -> CrawlResult:
                 continue
             visited.add(url)
 
-            # Scrape current URL
             result = await crawler.arun(url=url, script=args.script)
-            page_links: List[str] = []
-            raw_links = getattr(result, "links", []) or []
-            for link in raw_links:
-                if isinstance(link, str):
-                    candidate = link
-                else:
-                    candidate = link.get("href") or link.get("url")
-                if isinstance(candidate, str):
-                    page_links.append(candidate)
+            page_links: List[str] = _extract_links_from_result(url, result)
 
             pages.append(CrawlPage(url=url, markdown=result.markdown or "", links=page_links))
-            
-            # Adaptive crawling: check if we should continue
+
             if args.adaptive:
                 page_contents = [page.markdown for page in pages]
                 if not should_continue_crawling(page_contents, args.max_pages):
                     break
-            
+
             if depth + 1 <= args.max_depth:
                 for href in page_links:
                     if len(pages) >= args.max_pages:
@@ -185,21 +282,221 @@ async def _run_crawl(args: CrawlArgs) -> CrawlResult:
     return CrawlResult(start_url=str(args.seed_url), pages=pages, total_pages=len(pages))
 
 
+async def _persist_crawl_site(args: CrawlSiteArgs) -> CrawlPersistResult:
+    require_public_http_url(str(args.entry_url))
+    run_id = generate_run_id("site")
+    logger.info("crawl_site start run_id=%s entry=%s depth=%d pages=%d", run_id, str(args.entry_url), args.max_depth, args.max_pages)
+    run_dir = ensure_run_dir(args.output_dir, run_id)
+
+    manifest = Manifest(
+        run_id=run_id,
+        entry=str(args.entry_url),
+        mode="site",
+        started_at=datetime.now(timezone.utc).isoformat(),
+        config=args.model_dump(),
+    )
+    write_manifest(run_dir, manifest)
+
+    include = _compile_patterns(args.include_patterns)
+    exclude = _compile_patterns(args.exclude_patterns)
+    seed_host = urlparse(str(args.entry_url)).hostname or ""
+
+    visited: Set[str] = set()
+    frontier: List[tuple[str, int]] = [(str(args.entry_url), 0)]
+
+    async with AsyncWebCrawler() as crawler:
+        while frontier and manifest.totals.get("pages_ok", 0) < args.max_pages:
+            url, depth = frontier.pop(0)
+            if url in visited:
+                continue
+            visited.add(url)
+
+            t0 = time.perf_counter()
+            try:
+                append_log_jsonl(run_dir, {"event": "fetch_start", "url": url, "depth": depth, "ts": time.time()})
+                result = await crawler.arun(url=url)
+                links: List[str] = _extract_links_from_result(url, result)
+
+                path, nbytes = persist_page_markdown(run_dir, url, result.markdown or "")
+                append_jsonl(run_dir, {"url": url, "markdown_path": path, "bytes": nbytes})
+                if "links_csv" in args.formats and links:
+                    append_links_csv(run_dir, url, links)
+
+                rec = PageRecord(
+                    url=url,
+                    status="ok",
+                    path=path,
+                    content_bytes=nbytes,
+                    duration_ms=int((time.perf_counter() - t0) * 1000),
+                )
+                manifest.pages.append(rec)
+                update_totals(manifest, rec)
+                append_log_jsonl(run_dir, {"event": "fetch_ok", "url": url, "bytes": nbytes, "links": len(links), "ts": time.time()})
+
+                if depth + 1 <= args.max_depth:
+                    for href in links:
+                        if manifest.totals.get("pages_ok", 0) >= args.max_pages:
+                            break
+                        if _url_allowed(href, seed_host, args.same_domain_only, include, exclude):
+                            if href not in visited and all(href != u for u, _ in frontier):
+                                frontier.append((href, depth + 1))
+
+            except Exception as e:
+                rec = PageRecord(
+                    url=url,
+                    status="error",
+                    path=None,
+                    content_bytes=None,
+                    error=str(e),
+                    duration_ms=int((time.perf_counter() - t0) * 1000),
+                )
+                manifest.pages.append(rec)
+                update_totals(manifest, rec)
+                append_log_jsonl(run_dir, {"event": "fetch_error", "url": url, "error": str(e), "ts": time.time()})
+
+            write_manifest(run_dir, manifest)
+            await asyncio.sleep(args.politeness_delay_ms / 1000.0)
+
+    manifest.finished_at = datetime.now(timezone.utc).isoformat()
+    manifest_path = write_manifest(run_dir, manifest)
+
+    logger.info(
+        "crawl_site done run_id=%s ok=%d failed=%d bytes=%d dir=%s",
+        run_id,
+        manifest.totals.get("pages_ok", 0),
+        manifest.totals.get("pages_failed", 0),
+        manifest.totals.get("bytes_written", 0),
+        str(run_dir),
+    )
+
+    return CrawlPersistResult(
+        run_id=run_id,
+        output_dir=str(run_dir),
+        manifest_path=manifest_path,
+        pages_ok=manifest.totals.get("pages_ok", 0),
+        pages_failed=manifest.totals.get("pages_failed", 0),
+        bytes_written=manifest.totals.get("bytes_written", 0),
+        started_at=manifest.started_at,
+        finished_at=manifest.finished_at,
+    )
+
+
+async def _persist_crawl_sitemap(args: CrawlSitemapArgs) -> CrawlPersistResult:
+    run_id = generate_run_id("sitemap")
+    logger.info("crawl_sitemap start run_id=%s sitemap=%s max_entries=%d", run_id, str(args.sitemap_url), args.max_entries)
+    run_dir = ensure_run_dir(args.output_dir, run_id)
+
+    manifest = Manifest(
+        run_id=run_id,
+        entry=str(args.sitemap_url),
+        mode="sitemap",
+        started_at=datetime.now(timezone.utc).isoformat(),
+        config=args.model_dump(),
+    )
+    write_manifest(run_dir, manifest)
+
+    # Fetch and parse sitemap(s)
+    sitemap_text = await fetch_text(str(args.sitemap_url))
+    seeds: List[str] = []
+    if sitemap_text:
+        seeds = parse_sitemap_xml(sitemap_text)
+    seeds = seeds[: args.max_entries]
+    seeds = filter_urls(seeds, args.include_patterns, args.exclude_patterns)
+
+    async with AsyncWebCrawler() as crawler:
+        for url in seeds:
+            if manifest.totals.get("pages_ok", 0) >= args.max_entries:
+                break
+            t0 = time.perf_counter()
+            try:
+                append_log_jsonl(run_dir, {"event": "fetch_start", "url": url, "ts": time.time()})
+                result = await crawler.arun(url=url)
+                links: List[str] = _extract_links_from_result(url, result)
+
+                path, nbytes = persist_page_markdown(run_dir, url, result.markdown or "")
+                append_jsonl(run_dir, {"url": url, "markdown_path": path, "bytes": nbytes})
+                if "links_csv" in args.formats and links:
+                    append_links_csv(run_dir, url, links)
+
+                rec = PageRecord(
+                    url=url,
+                    status="ok",
+                    path=path,
+                    content_bytes=nbytes,
+                    duration_ms=int((time.perf_counter() - t0) * 1000),
+                )
+                manifest.pages.append(rec)
+                update_totals(manifest, rec)
+                append_log_jsonl(run_dir, {"event": "fetch_ok", "url": url, "bytes": nbytes, "links": len(links), "ts": time.time()})
+
+            except Exception as e:
+                rec = PageRecord(
+                    url=url,
+                    status="error",
+                    path=None,
+                    content_bytes=None,
+                    error=str(e),
+                    duration_ms=int((time.perf_counter() - t0) * 1000),
+                )
+                manifest.pages.append(rec)
+                update_totals(manifest, rec)
+                append_log_jsonl(run_dir, {"event": "fetch_error", "url": url, "error": str(e), "ts": time.time()})
+
+            write_manifest(run_dir, manifest)
+            await asyncio.sleep(args.politeness_delay_ms / 1000.0)
+
+    manifest.finished_at = datetime.now(timezone.utc).isoformat()
+    manifest_path = write_manifest(run_dir, manifest)
+
+    logger.info(
+        "crawl_sitemap done run_id=%s ok=%d failed=%d bytes=%d dir=%s",
+        run_id,
+        manifest.totals.get("pages_ok", 0),
+        manifest.totals.get("pages_failed", 0),
+        manifest.totals.get("bytes_written", 0),
+        str(run_dir),
+    )
+
+    return CrawlPersistResult(
+        run_id=run_id,
+        output_dir=str(run_dir),
+        manifest_path=manifest_path,
+        pages_ok=manifest.totals.get("pages_ok", 0),
+        pages_failed=manifest.totals.get("pages_failed", 0),
+        bytes_written=manifest.totals.get("bytes_written", 0),
+        started_at=manifest.started_at,
+        finished_at=manifest.finished_at,
+    )
+
+
 @server.call_tool()
 async def call_tool(name: str, arguments: Dict[str, Any]) -> Any:
+    logger.info("call_tool name=%s", name)
     if name == "scrape":
         parsed = ScrapeArgs.model_validate(arguments)
         result = await _run_scrape(parsed)
+        logger.info("scrape done url=%s chars=%d links=%d", str(parsed.url), len(result.markdown or ""), len(result.links))
         return json.loads(result.model_dump_json())
     elif name == "crawl":
         parsed = CrawlArgs.model_validate(arguments)
         result = await _run_crawl(parsed)
+        logger.info("crawl done start=%s pages=%d", str(parsed.seed_url), result.total_pages)
+        return json.loads(result.model_dump_json())
+    elif name == "crawl_site":
+        parsed = CrawlSiteArgs.model_validate(arguments)
+        result = await _persist_crawl_site(parsed)
+        return json.loads(result.model_dump_json())
+    elif name == "crawl_sitemap":
+        parsed = CrawlSitemapArgs.model_validate(arguments)
+        result = await _persist_crawl_sitemap(parsed)
         return json.loads(result.model_dump_json())
     else:
+        logger.error("unknown tool name=%s", name)
         raise ValueError(f"Unknown tool: {name}")
 
 
 async def _run_stdio_server() -> None:
+    logger.info("server starting (stdio)")
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,
@@ -210,10 +507,10 @@ async def _run_stdio_server() -> None:
                 capabilities=server.get_capabilities(notification_options=NotificationOptions(), experimental_capabilities={}),
             ),
         )
+    logger.info("server stopped")
 
 
 def main() -> None:
-    # Currently only stdio mode is supported for simplicity
     asyncio.run(_run_stdio_server())
 
 

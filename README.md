@@ -20,7 +20,7 @@ Similar to Firecrawl's API but self-hosted and free. Perfect for integrating web
 
 ```bash
 # Clone and setup
-git clone https://github.com/YOUR_USERNAME/crawl4ai-mcp-server.git
+git clone https://github.com/sadiuysal/crawl4ai-mcp-server.git
 cd crawl4ai-mcp-server
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
@@ -375,4 +375,4 @@ If this project helped you, please give it a star! It helps others discover the 
 
 ## 🐛 Issues
 
-Found a bug or have a feature request? Please [open an issue](https://github.com/YOUR_USERNAME/crawl4ai-mcp-server/issues).
+Found a bug or have a feature request? Please [open an issue](https://github.com/sadiuysal/crawl4ai-mcp-server/issues).

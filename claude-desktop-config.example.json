@@ -7,7 +7,7 @@
         "--rm", 
         "-i",
         "--volume",
-        "./crawls:/app/crawls",
+        "/tmp/crawl4ai-crawls:/app/crawls",
         "uysalsadi/crawl4ai-mcp-server:latest"
       ],
       "env": {

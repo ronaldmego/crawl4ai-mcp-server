@@ -16,11 +16,50 @@ Similar to Firecrawl's API but self-hosted and free. Perfect for integrating web
 
 ## 🚀 Quick Start
 
-### 1. Installation
+Choose between **Docker** (recommended) or **manual installation**:
+
+### Option A: Docker (Recommended) 🐳
+
+Docker eliminates all setup complexity and provides a consistent environment:
+
+#### Option A1: Use Pre-built Image (Fastest) ⚡
+```bash
+# No setup required! Just pull and run the published image
+docker pull uysalsadi/crawl4ai-mcp-server:latest
+
+# Test it works
+python test-config.py
+
+# Use directly in MCP configurations (see examples below)
+```
+
+#### Option A2: Build Yourself
+```bash
+# Clone the repository
+git clone https://github.com/uysalsadi/crawl4ai-mcp-server.git
+cd crawl4ai-mcp-server
+
+# Quick build and test (simplified)
+docker build -f Dockerfile.simple -t crawl4ai-mcp .
+echo '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test", "version": "1.0"}}}' | docker run --rm -i crawl4ai-mcp
+
+# Or use helper script (full build with Playwright)
+./docker-run.sh build
+./docker-run.sh test
+./docker-run.sh run
+```
+
+**Docker Quick Commands:**
+- `./docker-run.sh build` - Build the image
+- `./docker-run.sh run` - Run MCP server (stdio mode)
+- `./docker-run.sh test` - Run smoke tests
+- `./docker-run.sh dev` - Development mode with shell access
+
+### Option B: Manual Installation
 
 ```bash
 # Clone and setup
-git clone https://github.com/sadiuysal/crawl4ai-mcp-server.git
+git clone https://github.com/uysalsadi/crawl4ai-mcp-server.git
 cd crawl4ai-mcp-server
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
@@ -28,11 +67,7 @@ pip install -r requirements.txt
 
 # Install Playwright browsers
 python -m playwright install chromium
-```
 
-### 2. Test the MCP Server
-
-```bash
 # Test basic functionality
 python -m crawler_agent.smoke_client
 
@@ -40,13 +75,16 @@ python -m crawler_agent.smoke_client
 python test_adaptive.py
 ```
 
-### 3. Use with OpenAI Agents SDK
+### Use with OpenAI Agents SDK
 
 ```bash
 # Set your OpenAI API key
 export OPENAI_API_KEY="your-key-here"
 
-# Run the example agent
+# Docker: Run the example agent
+docker-compose run --rm -e OPENAI_API_KEY crawl4ai-mcp python -m crawler_agent.agents_example
+
+# Manual: Run the example agent
 python -m crawler_agent.agents_example
 ```
 
@@ -243,11 +281,191 @@ This project supports both **Cursor** and **Claude Code** with synchronized conf
 - Native MCP integration via `mcp__crawl4ai-mcp__*` tool calls
 - Global config: `~/.claude/claude_desktop_config.json` or project config: `.mcp.json`
 
+#### Docker Integration for Both Environments
+Both Cursor and Claude Code can use the Dockerized MCP server:
+
+```json
+// .mcp.json (project-scoped configuration)
+{
+  "mcpServers": {
+    "crawl4ai-mcp": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "--volume", "./crawls:/app/crawls",
+        "uysalsadi/crawl4ai-mcp-server:latest"
+      ],
+      "env": {
+        "CRAWL4AI_MCP_LOG": "INFO"
+      }
+    }
+  }
+}
+```
+
 #### Dual Environment Features
 - **Synchronized Documentation**: Changes to documentation are maintained across both environments
 - **Shared MCP Configuration**: Both use the same MCP server and tool schemas
-- **Consistent Workflows**: Virtual environment protocols, testing commands, and development standards are identical
+- **Docker Compatibility**: Consistent environment across both Cursor and Claude Code
 - **Cross-Compatible**: Projects work seamlessly whether using Cursor or Claude Code
+
+## 🐳 Docker Usage
+
+### Quick Start with Docker
+
+The Docker approach eliminates all manual setup and provides a consistent environment:
+
+```bash
+# 1. Clone and build
+git clone https://github.com/uysalsadi/crawl4ai-mcp-server.git
+cd crawl4ai-mcp-server
+./docker-run.sh build
+
+# 2. Test the installation
+./docker-run.sh test
+
+# 3. Run MCP server
+./docker-run.sh run
+```
+
+### Docker Commands Reference
+
+| Command | Description |
+|---------|-------------|
+| `./docker-run.sh build` | Build the Docker image |
+| `./docker-run.sh run` | Run MCP server in stdio mode |
+| `./docker-run.sh test` | Run smoke tests |
+| `./docker-run.sh dev` | Development mode with shell access |
+| `./docker-run.sh stop` | Stop running containers |
+| `./docker-run.sh clean` | Remove containers and images |
+| `./docker-run.sh logs` | Show container logs |
+
+### Docker Compose Services
+
+The `docker-compose.yml` provides multiple service configurations:
+
+- **`crawl4ai-mcp`**: Production MCP server
+- **`crawl4ai-mcp-dev`**: Development container with shell access  
+- **`crawl4ai-mcp-test`**: Test runner for smoke tests
+
+### MCP Integration with Docker
+
+#### Global MCP Configuration (Claude Code)
+
+Add to `~/.claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "crawl4ai-mcp": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i", 
+        "--volume", "/tmp/crawl4ai-crawls:/app/crawls",
+        "uysalsadi/crawl4ai-mcp-server:latest"
+      ],
+      "env": {
+        "CRAWL4AI_MCP_LOG": "INFO"
+      }
+    }
+  }
+}
+```
+
+**✅ Copy this exact config** - it uses the published Docker image!
+
+#### Global MCP Configuration (Cursor)
+
+Add to `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "crawl4ai-mcp": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "--volume", "/tmp/crawl4ai-crawls:/app/crawls", 
+        "uysalsadi/crawl4ai-mcp-server:latest"
+      ],
+      "env": {
+        "CRAWL4AI_MCP_LOG": "INFO"
+      }
+    }
+  }
+}
+```
+
+**✅ This configuration is tested and working!**
+
+#### Project-Scoped Configuration
+
+Add to your project's `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "crawl4ai-mcp": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "--volume", "./crawls:/app/crawls",
+        "uysalsadi/crawl4ai-mcp-server:latest"
+      ],
+      "env": {
+        "CRAWL4AI_MCP_LOG": "INFO"
+      }
+    }
+  }
+}
+```
+
+**✅ This project already includes this configuration** - see `.mcp.json`
+
+#### Configuration Validation
+
+After setting up any MCP configuration:
+
+1. **Test the Docker image works**:
+   ```bash
+   python test-config.py
+   ```
+
+2. **Restart your editor** (Cursor/Claude Code) to reload MCP configuration
+
+3. **Verify tools are available**:
+   - Look for `crawl4ai-mcp` in the MCP tools panel
+   - Should see 4 tools: `scrape`, `crawl`, `crawl_site`, `crawl_sitemap`
+
+If tools don't appear, check:
+- Docker is running and image is accessible
+- MCP configuration file syntax is valid JSON
+- Editor has been restarted after config changes
+
+### Docker Advantages
+
+✅ **Zero Setup**: No need for Python venv, pip, or Playwright installation  
+✅ **Consistent Environment**: Same behavior across all platforms  
+✅ **Isolated Dependencies**: No conflicts with your system Python  
+✅ **Easy Updates**: `docker pull` to get latest version  
+✅ **Portable**: Works anywhere Docker runs  
+✅ **Volume Persistence**: Crawl outputs saved to host filesystem
+
+### Environment Variables
+
+Set these when running Docker containers:
+
+```bash
+# Using docker-compose
+OPENAI_API_KEY=your-key docker-compose up crawl4ai-mcp
+
+# Using docker run directly
+docker run --rm -i \
+  -e OPENAI_API_KEY=your-key \
+  -e CRAWL4AI_MCP_LOG=DEBUG \
+  -v ./crawls:/app/crawls \
+  crawl4ai-mcp-server:latest
+```
 
 ## ⚙️ Configuration
 
@@ -314,6 +532,38 @@ await session.call_tool("scrape", {
                        └──────────────────┘
 ```
 
+## 📦 Publishing to Docker Hub
+
+For maintainers who want to publish updates to the Docker registry:
+
+### Publishing Process
+
+```bash
+# 1. Login to Docker Hub (one time setup)
+./docker-push.sh login
+
+# 2. Build, push, and test everything
+./docker-push.sh all
+
+# Or do steps individually:
+./docker-push.sh build    # Build and tag image
+./docker-push.sh push     # Push to Docker Hub
+./docker-push.sh test     # Test the published image
+```
+
+### Docker Hub Repository
+
+The image is published at: **`uysalsadi/crawl4ai-mcp-server`**
+- Latest: `uysalsadi/crawl4ai-mcp-server:latest`
+- Versioned: `uysalsadi/crawl4ai-mcp-server:v1.0.0`
+
+### Usage Statistics
+
+Users can pull and use the image without any local setup:
+```bash
+docker pull uysalsadi/crawl4ai-mcp-server:latest
+```
+
 ## 🔧 Development
 
 ### Project Structure
@@ -375,4 +625,4 @@ If this project helped you, please give it a star! It helps others discover the 
 
 ## 🐛 Issues
 
-Found a bug or have a feature request? Please [open an issue](https://github.com/sadiuysal/crawl4ai-mcp-server/issues).
+Found a bug or have a feature request? Please [open an issue](https://github.com/uysalsadi/crawl4ai-mcp-server/issues).

@@ -1,0 +1,63 @@
+services:
+  crawl4ai-mcp:
+    build: .
+    image: crawl4ai-mcp-server:latest
+    container_name: crawl4ai-mcp
+    stdin_open: true       # Keep STDIN open for MCP stdio communication
+    tty: true             # Allocate a pseudo-TTY for proper stdio handling
+    volumes:
+      # Mount output directories for persistent storage
+      - ./crawls:/app/crawls
+      - ./test_crawls:/app/test_crawls
+    environment:
+      # Logging level for the MCP server
+      - CRAWL4AI_MCP_LOG=INFO
+      # Default URL for smoke testing
+      - TARGET_URL=https://modelcontextprotocol.io/docs
+      # Optional: OpenAI API key for agents example
+      # - OPENAI_API_KEY=your-key-here
+    # Network mode for proper MCP communication
+    network_mode: host
+    # Resource limits (adjust based on your needs)
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+    # Restart policy
+    restart: unless-stopped
+
+  # Development service with shell access
+  crawl4ai-mcp-dev:
+    build: .
+    image: crawl4ai-mcp-server:latest
+    container_name: crawl4ai-mcp-dev
+    command: /bin/bash
+    stdin_open: true
+    tty: true
+    volumes:
+      # Mount the entire project for development
+      - .:/app
+    environment:
+      - CRAWL4AI_MCP_LOG=DEBUG
+      - TARGET_URL=https://modelcontextprotocol.io/docs
+    network_mode: host
+    profiles:
+      - dev
+
+  # Test service for running smoke tests
+  crawl4ai-mcp-test:
+    build: .
+    image: crawl4ai-mcp-server:latest
+    container_name: crawl4ai-mcp-test
+    command: python -m crawler_agent.smoke_client
+    volumes:
+      - ./test_crawls:/app/test_crawls
+    environment:
+      - CRAWL4AI_MCP_LOG=DEBUG
+      - TARGET_URL=https://modelcontextprotocol.io/docs
+    network_mode: host
+    profiles:
+      - test

@@ -75,7 +75,14 @@
 - Lint/tests/build minimal run; for MCP stdio server, a smoke run that lists tools and runs `crawl_url` against a simple page.
 - Capture outputs and errors; fail fast with actionable messages.
 
-## Virtual Environment Protocol (CRITICAL)
+## Docker Integration (Recommended)
+- **Docker commands**: Use `./docker-run.sh` helper script for common operations
+- **Build and test**: `./docker-run.sh build && ./docker-run.sh test` 
+- **Run server**: `./docker-run.sh run` (stdio MCP mode)
+- **Development**: `./docker-run.sh dev` (shell access)
+- **Benefits**: Zero setup, consistent environment, no dependency conflicts
+
+## Virtual Environment Protocol (Manual Setup Only)
 - **ALWAYS activate virtual environment before ANY operation**: `source .venv/bin/activate` or `source venv/bin/activate`
 - **Required for**: package installation, running servers, testing, development commands
 - **Location**: `<project_root>/.venv` or `<project_root>/venv` (project-specific)

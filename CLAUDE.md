@@ -75,7 +75,48 @@ You are a senior software engineer collaborating on `crawler_agent`. Your primar
 
 ## Development Environment Rules & Memory Bank
 
-### Virtual Environment Protocol (CRITICAL)
+### Docker Integration (Recommended Approach)
+The project now supports Docker for simplified setup and deployment:
+
+#### Docker Benefits
+- **Zero Setup**: No manual venv, pip, or Playwright installation required
+- **Consistent Environment**: Same behavior across all platforms  
+- **Isolation**: No conflicts with system Python or dependencies
+- **Portability**: Works anywhere Docker runs
+- **Easy Updates**: Simple image rebuilds for new versions
+
+#### Docker Files Structure
+- `Dockerfile`: Multi-stage build with Python 3.11, dependencies, and Playwright browsers
+- `docker-compose.yml`: Service definitions for production, development, and testing
+- `docker-run.sh`: Helper script with common commands
+- `.dockerignore`: Optimized build context
+
+#### Docker Commands Reference
+```bash
+# Build and test
+./docker-run.sh build      # Build Docker image
+./docker-run.sh test       # Run smoke tests
+./docker-run.sh run        # Run MCP server
+./docker-run.sh dev        # Development shell
+./docker-run.sh stop       # Stop containers
+./docker-run.sh clean      # Clean up images
+```
+
+#### MCP Integration with Docker
+Claude Code can use the Docker container directly:
+```json
+{
+  "mcpServers": {
+    "crawl4ai-mcp": {
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "crawl4ai-mcp-server:latest"],
+      "cwd": "/path/to/crawl4ai-mcp-server"
+    }
+  }
+}
+```
+
+### Virtual Environment Protocol (CRITICAL - Manual Setup Only)
 - **ALWAYS activate virtual environment before ANY operation**: `source .venv/bin/activate` or `source venv/bin/activate`
 - **Required for**: package installation, running servers, testing, development commands
 - **Location**: `<project_root>/.venv` or `<project_root>/venv` (project-specific)
@@ -87,8 +128,8 @@ When using this MCP server from another repository:
 #### Option 1: Direct Git Installation
 ```bash
 # From your target repository
-git clone https://github.com/sadiuysal/crawler_agent.git
-cd crawler_agent
+git clone https://github.com/uysalsadi/crawl4ai-mcp-server.git
+cd crawl4ai-mcp-server
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -103,8 +144,8 @@ python -m crawler_agent.smoke_client
 # Install in a global location
 mkdir -p ~/.local/mcp-servers
 cd ~/.local/mcp-servers
-git clone https://github.com/sadiuysal/crawler_agent.git
-cd crawler_agent
+git clone https://github.com/uysalsadi/crawl4ai-mcp-server.git
+cd crawl4ai-mcp-server
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -112,6 +153,26 @@ python -m playwright install chromium
 ```
 
 #### Claude Code Configuration (Remote)
+
+#### Option 1: Docker (Recommended)
+Add to `~/.claude/claude_desktop_config.json`:
+```json
+{
+  "mcpServers": {
+    "crawl4ai-mcp": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "--volume", "/path/to/crawl4ai-mcp-server/crawls:/app/crawls",
+        "crawl4ai-mcp-server:latest"
+      ],
+      "cwd": "/path/to/crawl4ai-mcp-server"
+    }
+  }
+}
+```
+
+#### Option 2: Manual Virtual Environment
 Add to `~/.claude/claude_desktop_config.json`:
 ```json
 {
@@ -149,7 +210,7 @@ For project-specific MCP servers, add to target repository:
 - **Testing client**: `crawler_agent/smoke_client.py`
 
 ### Claude Code MCP Integration
-- **Config file**: `/Users/sadiuysal/Library/Application Support/Claude/claude_desktop_config.json`
+- **Config file**: `~/.claude/claude_desktop_config.json`
 - **Server entry**: `crawl4ai-mcp` configured with venv Python path
 - **Restart required**: Claude session must restart after config changes
 - **Project config**: `.mcp.json` (optional, for project-scoped servers)
@@ -176,7 +237,22 @@ For project-specific MCP servers, add to target repository:
 - **Path issues**: Use absolute paths in MCP config
 - **Permission errors**: Check `.claude/settings.local.json`
 
-### Development Commands (All require venv)
+### Development Commands
+
+#### Docker Commands (Recommended)
+```bash
+# Build and test:
+./docker-run.sh build
+./docker-run.sh test
+
+# Run MCP server:
+./docker-run.sh run
+
+# Development mode:
+./docker-run.sh dev
+```
+
+#### Manual Commands (Require venv)
 ```bash
 # Always start with:
 source .venv/bin/activate
@@ -252,8 +328,85 @@ The following rules are maintained across both environments:
 3. **Documentation**: Update both CLAUDE.md and .cursorrules when changing workflows
 4. **Commits**: Use consistent commit message format with proper attribution
 
+## Development Learnings & Memory Bank (CRITICAL)
+
+### Docker MCP Server Lessons Learned
+
+#### Key Success Factors
+1. **Docker Image Publishing**: Always rebuild and push Docker image after any code changes
+   - Use `./docker-push.sh build && ./docker-push.sh push` workflow
+   - Published image: `uysalsadi/crawl4ai-mcp-server:latest`
+   - Test published image: `python test-config.py`
+
+2. **MCP Protocol Requirements**:
+   - MCP servers need proper `initialize` → `notifications/initialized` → `tools/list` sequence
+   - Claude Code handles this automatically, manual testing requires full sequence
+   - Docker MCP server exposes 4 tools: `scrape`, `crawl`, `crawl_site`, `crawl_sitemap`
+
+3. **Configuration Management**:
+   - **Global Cursor**: `~/.cursor/mcp.json` - use Docker command
+   - **Project Cursor**: `.mcp.json` - use Docker with volume mounting
+   - **Claude Code**: `claude-desktop-config.example.json` - use published Docker image
+   - **Always restart** Cursor/Claude Code after config changes
+
+#### Critical Docker Configuration (TESTED & WORKING)
+```json
+{
+  "mcpServers": {
+    "crawl4ai-mcp": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "--volume", "./crawls:/app/crawls",
+        "uysalsadi/crawl4ai-mcp-server:latest"
+      ],
+      "env": {
+        "CRAWL4AI_MCP_LOG": "INFO"
+      }
+    }
+  }
+}
+```
+
+#### Repository Cleanup Best Practices
+1. **Remove Legacy Files**: Debug scripts, old test files, temp configs
+2. **Standardize Naming**: Use consistent `crawl4ai-mcp` server name across all configs
+3. **Update Documentation**: Synchronize README.md, CLAUDE.md, .cursorrules after changes
+4. **Version Docker Images**: Tag and push both `:latest` and versioned tags
+
+#### Common Failure Patterns (AVOID)
+❌ **Using local venv paths in global configs** - breaks portability  
+❌ **Forgetting to rebuild Docker image** - users get outdated tools  
+❌ **Inconsistent server names** - causes confusion between environments  
+❌ **Not testing published Docker image** - deployment failures  
+❌ **Missing volume mounts** - crawl results lost  
+
+#### Validation Checklist
+✅ **Docker image rebuilt and pushed** after code changes  
+✅ **Test script confirms 4 tools available** (`python test-config.py`)  
+✅ **Global Cursor config uses Docker** (not local venv)  
+✅ **Project .mcp.json uses published image** with volume mount  
+✅ **Claude Code config example updated** with working Docker setup  
+✅ **Documentation synchronized** across all files  
+
+#### Quick Recovery Commands
+```bash
+# Rebuild and republish Docker image
+./docker-push.sh build && ./docker-push.sh push
+
+# Test published image works
+python test-config.py
+
+# Update global Cursor config (manual edit required)
+# ~/.cursor/mcp.json - change to Docker command
+
+# Verify tools available (should show 4 tools)
+# Restart Cursor/Claude Code to reload config
+```
+
 ## Notes for Claude
 - Prefer concise edits and high-signal summaries.
 - If blocked on missing details (e.g., schema shape), propose 1–2 narrow options and proceed with the safest default.
 - Avoid long-running crawls; provide budgets and timeouts by default.
 - **When modifying documentation**: Apply changes to both CLAUDE.md and .cursorrules for consistency.
+- **ALWAYS validate Docker configs** with `test-config.py` before recommending to users.

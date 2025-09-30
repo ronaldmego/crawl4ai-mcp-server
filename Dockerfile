@@ -61,9 +61,17 @@ COPY . .
 # Create directories for outputs
 RUN mkdir -p /app/crawls /app/test_crawls
 
-# Create non-root user for security
-RUN adduser --disabled-password --gecos '' --uid 1000 appuser \
-    && chown -R appuser:appuser /app
+# Create non-root user AFTER installing browsers
+RUN adduser --disabled-password --gecos '' --uid 1000 appuser
+
+# Install Playwright browsers for appuser
+USER appuser
+ENV PLAYWRIGHT_BROWSERS_PATH=/home/appuser/.cache/ms-playwright
+RUN python -m playwright install chromium
+
+# Set permissions
+USER root
+RUN chown -R appuser:appuser /app
 USER appuser
 
 # Set environment variables

@@ -7,6 +7,7 @@ import time
 import os
 import sys
 import logging
+import io
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -48,6 +49,17 @@ if not logger.handlers:
     logger.addHandler(_h)
 logger.setLevel(_LOG_LEVEL)
 logger.propagate = False
+
+
+# Supresor de output de Crawl4AI para evitar warnings en MCP stdio
+class SuppressCrawl4AIOutput:
+    def __enter__(self):
+        self._stdout = sys.stdout
+        sys.stdout = io.StringIO()
+        return self
+    
+    def __exit__(self, *args):
+        sys.stdout = self._stdout
 
 
 server = Server("crawl4ai-mcp")
@@ -187,10 +199,11 @@ async def list_tools() -> List[types.Tool]:
 async def _run_scrape(args: ScrapeArgs) -> ScrapeResult:
     require_public_http_url(str(args.url))
     async with AsyncWebCrawler() as crawler:
-        result = await crawler.arun(
-            url=str(args.url),
-            script=args.script,
-        )
+        with SuppressCrawl4AIOutput():
+            result = await crawler.arun(
+                url=str(args.url),
+                script=args.script,
+            )
     links = []
     raw_links = getattr(result, "links", []) or []
     for link in raw_links:
@@ -223,10 +236,11 @@ async def _persist_scrape(args: ScrapeArgs) -> ScrapePersistResult:
     
     # Scrape the content
     async with AsyncWebCrawler() as crawler:
-        result = await crawler.arun(
-            url=str(args.url),
-            script=args.script,
-        )
+        with SuppressCrawl4AIOutput():
+            result = await crawler.arun(
+                url=str(args.url),
+                script=args.script,
+            )
     
     # Process links
     links = []
@@ -345,7 +359,8 @@ async def _run_crawl(args: CrawlArgs) -> CrawlResult:
                 continue
             visited.add(url)
 
-            result = await crawler.arun(url=url, script=args.script)
+            with SuppressCrawl4AIOutput():
+                result = await crawler.arun(url=url, script=args.script)
             page_links: List[str] = _extract_links_from_result(url, result)
 
             pages.append(CrawlPage(url=url, markdown=result.markdown or "", links=page_links))
@@ -404,7 +419,8 @@ async def _persist_crawl(args: CrawlArgs) -> CrawlPersistResult:
             
             try:
                 logger.debug("crawling url=%s depth=%d", url, depth)
-                result = await crawler.arun(url=url, script=args.script)
+                with SuppressCrawl4AIOutput():
+                    result = await crawler.arun(url=url, script=args.script)
                 markdown = result.markdown or ""
                 
                 # Persist page
@@ -503,7 +519,8 @@ async def _persist_crawl_site(args: CrawlSiteArgs) -> CrawlPersistResult:
             t0 = time.perf_counter()
             try:
                 append_log_jsonl(run_dir, {"event": "fetch_start", "url": url, "depth": depth, "ts": time.time()})
-                result = await crawler.arun(url=url)
+                with SuppressCrawl4AIOutput():
+                    result = await crawler.arun(url=url)
                 links: List[str] = _extract_links_from_result(url, result)
 
                 path, nbytes = persist_page_markdown(run_dir, url, result.markdown or "")
@@ -599,7 +616,8 @@ async def _persist_crawl_sitemap(args: CrawlSitemapArgs) -> CrawlPersistResult:
             t0 = time.perf_counter()
             try:
                 append_log_jsonl(run_dir, {"event": "fetch_start", "url": url, "ts": time.time()})
-                result = await crawler.arun(url=url)
+                with SuppressCrawl4AIOutput():
+                    result = await crawler.arun(url=url)
                 links: List[str] = _extract_links_from_result(url, result)
 
                 path, nbytes = persist_page_markdown(run_dir, url, result.markdown or "")

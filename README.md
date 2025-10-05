@@ -374,6 +374,10 @@ Add to `~/.claude/claude_desktop_config.json`:
 
 **✅ Copy this exact config** - it uses the published Docker image!
 
+**📁 Example files available:**
+- `claude-desktop-config.example.json` - Uses published Docker image
+- `claude-desktop-config.local.json` - Uses local build (`crawl4ai-mcp:local`)
+
 #### Global MCP Configuration (Cursor)
 
 Add to `~/.cursor/mcp.json`:
@@ -421,6 +425,34 @@ Add to your project's `.mcp.json`:
 ```
 
 **✅ This project already includes this configuration** - see `.mcp.json`
+
+#### Local Development Setup (Alternative to Docker Hub)
+
+If you've forked this project and built your own local image, you can use your local build instead of the published image:
+
+```json
+{
+  "mcpServers": {
+    "crawl4ai": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "--volume", "./crawls:/app/crawls",
+        "crawl4ai-mcp:local"
+      ],
+      "env": {
+        "CRAWL4AI_MCP_LOG": "INFO"
+      }
+    }
+  }
+}
+```
+
+**Key differences for local setup:**
+- Uses `crawl4ai-mcp:local` (your locally built image) instead of `uysalsadi/crawl4ai-mcp-server:latest`
+- Perfect for development and customization
+- No need to publish to Docker Hub
+- Build locally with: `./docker-run.sh build` or `docker build -t crawl4ai-mcp:local .`
 
 #### Configuration Validation
 

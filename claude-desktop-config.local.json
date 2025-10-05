@@ -8,7 +8,7 @@
         "-i",
         "--volume",
         "/tmp/crawl4ai-crawls:/app/crawls",
-        "uysalsadi/crawl4ai-mcp-server:latest"
+        "crawl4ai-mcp:local"
       ],
       "env": {
         "CRAWL4AI_MCP_LOG": "INFO"

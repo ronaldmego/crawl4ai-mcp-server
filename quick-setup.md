@@ -2,7 +2,7 @@
 
 Configuración rápida del Crawl4AI MCP Server en una nueva laptop.
 
-## Opción 1: Setup Local (Recomendado para desarrollo)
+## ✅ Opción 1: Setup Local (FUNCIONA - Recomendado)
 
 ### 1. Prerrequisitos
 ```bash
@@ -35,7 +35,7 @@ echo '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVe
 ```
 
 ### 4. Configurar Claude Desktop
-Copiar el contenido de `claude-desktop-config.local.json` a tu configuración de Claude Desktop:
+Copiar esta configuración a tu archivo de configuración de Claude Desktop:
 
 **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 **Mac:** `~/Library/Application Support/Claude/claude_desktop_config.json`
@@ -50,8 +50,9 @@ Copiar el contenido de `claude-desktop-config.local.json` a tu configuración de
         "run",
         "--rm",
         "-i",
+        "--name", "crawl4ai-mcp-claude",
         "--volume",
-        "/tmp/crawl4ai-crawls:/app/crawls",
+        "./crawls:/app/crawls",
         "crawl4ai-mcp:local"
       ],
       "env": {
@@ -62,6 +63,8 @@ Copiar el contenido de `claude-desktop-config.local.json` a tu configuración de
 }
 ```
 
+**Nota importante:** El `--name` evita contenedores duplicados. Si usas Windows, cambia `./crawls` por una ruta absoluta como `C:\temp\crawl4ai-crawls`.
+
 ### 5. Reiniciar Claude Desktop
 - Cerrar completamente Claude Desktop
 - Abrir de nuevo
@@ -69,10 +72,12 @@ Copiar el contenido de `claude-desktop-config.local.json` a tu configuración de
 
 ---
 
-## Opción 2: Setup con Imagen Publicada (Más rápido)
+## ❌ Opción 2: Setup con Imagen Publicada (NO FUNCIONA)
 
-### 1. Sin clonar nada, solo configurar Claude Desktop
-Usar el contenido de `claude-desktop-config.example.json`:
+**NOTA:** Esta opción no funciona correctamente. La imagen publicada `uysalsadi/crawl4ai-mcp-server:latest` tiene problemas de compatibilidad. **Usar siempre la Opción 1.**
+
+<details>
+<summary>Configuración que NO funciona (solo para referencia)</summary>
 
 ```json
 {
@@ -94,15 +99,7 @@ Usar el contenido de `claude-desktop-config.example.json`:
   }
 }
 ```
-
-### 2. Probar que funciona
-```bash
-# Docker descargará automáticamente la imagen
-docker pull uysalsadi/crawl4ai-mcp-server:latest
-
-# Test
-echo '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test", "version": "1.0"}}}' | docker run --rm -i uysalsadi/crawl4ai-mcp-server:latest
-```
+</details>
 
 ---
 
@@ -136,6 +133,18 @@ Usa la herramienta scrape para obtener el contenido de https://example.com
 - Usar ruta absoluta en lugar de `./crawls`
 - Ejemplo: `C:\Users\tu-usuario\crawls:/app/crawls`
 
+**Si aparecen contenedores duplicados:**
+```bash
+# Ver contenedores corriendo
+docker ps
+
+# Parar todos los contenedores de crawl4ai
+docker stop $(docker ps -q --filter ancestor=crawl4ai-mcp:local)
+
+# Limpiar contenedores parados
+docker container prune
+```
+
 ---
 
 ## Comandos Útiles
@@ -158,5 +167,11 @@ docker run --rm -i -e CRAWL4AI_MCP_LOG=DEBUG crawl4ai-mcp:local
 ```
 
 ## Tiempo estimado
-- **Opción 1 (Local):** 10-15 minutos
-- **Opción 2 (Publicada):** 3-5 minutos
+- **✅ Opción 1 (Local - FUNCIONA):** 10-15 minutos
+- **❌ Opción 2 (Publicada - NO FUNCIONA):** No usar
+
+## Lecciones aprendidas
+1. **Siempre construir localmente:** La imagen publicada tiene problemas de compatibilidad
+2. **Usar `--name` en Docker:** Evita contenedores duplicados cuando Claude reinicia la conexión
+3. **Verificar rutas de volumen:** En Windows usar rutas absolutas, en Linux/Mac `./crawls` funciona bien
+4. **El fork de ronaldmego funciona:** Contiene las correcciones necesarias del Dockerfile

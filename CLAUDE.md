@@ -1,6 +1,8 @@
-# Project Working Agreements for Claude Code
+# Project Working Agreements for Claude Code - Fork Personalizado
 
-You are a senior software engineer collaborating on `crawler_agent`. Your primary goal is to expose Crawl4AI via an MCP server that integrates cleanly with OpenAI Agents SDK and works well in Cursor/Cloud Code.
+You are a senior software engineer collaborating on `crawler_agent`. Your primary goal is to expose Crawl4AI via an MCP server that integrates cleanly with OpenAI Agents SDK and works well in Cursor/Claude Code.
+
+**IMPORTANTE**: Este es un fork personalizado con correcciones críticas de bugs. **SIEMPRE usar build local** en lugar de la imagen publicada original que tiene problemas de compatibilidad.
 
 ## Mission and scope
 - Build a robust stdio MCP server wrapping Crawl4AI (`AsyncWebCrawler`) with a minimal tool surface: `crawl_url`, `deep_crawl`, `adaptive_crawl`.
@@ -328,15 +330,38 @@ The following rules are maintained across both environments:
 3. **Documentation**: Update both CLAUDE.md and .cursorrules when changing workflows
 4. **Commits**: Use consistent commit message format with proper attribution
 
+## Correcciones de Bugs Implementadas (CRÍTICO)
+
+### Bug Crítico del Dockerfile Original
+**Problema**: El Dockerfile original instalaba Playwright browsers como root en `/root/.cache/`, causando problemas de permisos cuando el container ejecutaba como usuario no-root.
+
+**Solución Implementada**:
+1. Creación de usuario `appuser` con UID 1000
+2. Instalación de Playwright browsers después del cambio de usuario
+3. Configuración correcta de permisos en `/app`
+4. Variables de entorno apropiadas para Playwright
+
+**Resultado**: Build exitoso en 118.5s, tests pasando, 4 herramientas MCP disponibles.
+
+### Independencia de la Imagen Original
+**Razón**: La imagen publicada `uysalsadi/crawl4ai-mcp-server:latest` contiene bugs no resueltos y problemas de compatibilidad.
+
+**Estrategia**: 
+- Fork personalizado con correcciones
+- Build local obligatorio: `docker build -t crawl4ai-mcp:local .`
+- Configuración específica para Windows con rutas absolutas
+- Testing exhaustivo antes de deployment
+
 ## Development Learnings & Memory Bank (CRITICAL)
 
 ### Docker MCP Server Lessons Learned
 
 #### Key Success Factors
-1. **Docker Image Publishing**: Always rebuild and push Docker image after any code changes
-   - Use `./docker-push.sh build && ./docker-push.sh push` workflow
-   - Published image: `uysalsadi/crawl4ai-mcp-server:latest`
-   - Test published image: `python test-config.py`
+1. **Build Local Siempre**: La imagen publicada original tiene bugs críticos
+   - Use `docker build -t crawl4ai-mcp:local .` para construir localmente
+   - Tiempo estimado: 10-15 minutos en primera construcción
+   - Test local: `./docker-run.sh test`
+   - **NUNCA usar** `uysalsadi/crawl4ai-mcp-server:latest` (tiene bugs)
 
 2. **MCP Protocol Requirements**:
    - MCP servers need proper `initialize` → `notifications/initialized` → `tools/list` sequence
@@ -344,12 +369,13 @@ The following rules are maintained across both environments:
    - Docker MCP server exposes 4 tools: `scrape`, `crawl`, `crawl_site`, `crawl_sitemap`
 
 3. **Configuration Management**:
-   - **Global Cursor**: `~/.cursor/mcp.json` - use Docker command
-   - **Project Cursor**: `.mcp.json` - use Docker with volume mounting
-   - **Claude Code**: `claude-desktop-config.example.json` - use published Docker image
-   - **Always restart** Cursor/Claude Code after config changes
+   - **Claude Desktop Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+   - **Usar imagen local**: `crawl4ai-mcp:local` (NO la publicada)
+   - **Volume mapping**: `C:\temp\crawl4ai-crawls:/app/crawls` en Windows
+   - **Container naming**: `--name crawl4ai-mcp-claude` evita duplicados
+   - **Always restart** Claude Desktop after config changes
 
-#### Critical Docker Configuration (TESTED & WORKING)
+#### Critical Docker Configuration (TESTED & WORKING - Fork Personalizado)
 ```json
 {
   "mcpServers": {
@@ -357,11 +383,45 @@ The following rules are maintained across both environments:
       "command": "docker",
       "args": [
         "run", "--rm", "-i",
-        "--volume", "./crawls:/app/crawls",
-        "uysalsadi/crawl4ai-mcp-server:latest"
+        "--name", "crawl4ai-mcp-claude",
+        "--volume", "C:\\temp\\crawl4ai-crawls:/app/crawls",
+        "crawl4ai-mcp:local"
       ],
       "env": {
         "CRAWL4AI_MCP_LOG": "INFO"
+      }
+    }
+  }
+}
+```
+
+#### Configuración Completa Multi-MCP (Probada y Funcional)
+```json
+{
+  "mcpServers": {
+    "graphiti-mcp": {
+      "command": "mcp-proxy",
+      "args": ["http://100.64.216.28:8001/sse"]
+    },
+    "crawl4ai-mcp": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "--name", "crawl4ai-mcp-claude",
+        "--volume", "C:\\temp\\crawl4ai-crawls:/app/crawls",
+        "crawl4ai-mcp:local"
+      ],
+      "env": {
+        "CRAWL4AI_MCP_LOG": "INFO"
+      }
+    },
+    "MCP_DOCKER": {
+      "command": "docker",
+      "args": ["mcp", "gateway", "run"],
+      "env": {
+        "LOCALAPPDATA": "C:\\Users\\ronal\\AppData\\Local",
+        "ProgramData": "C:\\ProgramData",
+        "ProgramFiles": "C:\\Program Files"
       }
     }
   }

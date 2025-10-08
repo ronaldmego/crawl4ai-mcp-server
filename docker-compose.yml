@@ -1,7 +1,7 @@
 services:
   crawl4ai-mcp:
     build: .
-    image: crawl4ai-mcp-server:latest
+    image: crawl4ai-mcp:local
     container_name: crawl4ai-mcp
     stdin_open: true       # Keep STDIN open for MCP stdio communication
     tty: true             # Allocate a pseudo-TTY for proper stdio handling
@@ -32,7 +32,7 @@ services:
   # Development service with shell access
   crawl4ai-mcp-dev:
     build: .
-    image: crawl4ai-mcp-server:latest
+    image: crawl4ai-mcp:local
     container_name: crawl4ai-mcp-dev
     command: /bin/bash
     stdin_open: true
@@ -50,7 +50,7 @@ services:
   # Test service for running smoke tests
   crawl4ai-mcp-test:
     build: .
-    image: crawl4ai-mcp-server:latest
+    image: crawl4ai-mcp:local
     container_name: crawl4ai-mcp-test
     command: python -m crawler_agent.smoke_client
     volumes:

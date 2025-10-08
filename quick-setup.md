@@ -41,6 +41,7 @@ Copiar esta configuración a tu archivo de configuración de Claude Desktop:
 **Mac:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 **Linux:** `~/.config/Claude/claude_desktop_config.json`
 
+#### Configuración Básica (Solo Crawl4AI):
 ```json
 {
   "mcpServers": {
@@ -52,7 +53,7 @@ Copiar esta configuración a tu archivo de configuración de Claude Desktop:
         "-i",
         "--name", "crawl4ai-mcp-claude",
         "--volume",
-        "./crawls:/app/crawls",
+        "C:\\temp\\crawl4ai-crawls:/app/crawls",
         "crawl4ai-mcp:local"
       ],
       "env": {
@@ -63,7 +64,47 @@ Copiar esta configuración a tu archivo de configuración de Claude Desktop:
 }
 ```
 
-**Nota importante:** El `--name` evita contenedores duplicados. Si usas Windows, cambia `./crawls` por una ruta absoluta como `C:\temp\crawl4ai-crawls`.
+#### Configuración Completa (Con múltiples MCPs - Probada y Funcional):
+```json
+{
+  "mcpServers": {
+    "graphiti-mcp": {
+      "command": "mcp-proxy",
+      "args": ["http://100.64.216.28:8001/sse"]
+    },
+    "crawl4ai-mcp": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--name", "crawl4ai-mcp-claude",
+        "--volume",
+        "C:\\temp\\crawl4ai-crawls:/app/crawls",
+        "crawl4ai-mcp:local"
+      ],
+      "env": {
+        "CRAWL4AI_MCP_LOG": "INFO"
+      }
+    },
+    "MCP_DOCKER": {
+      "command": "docker",
+      "args": ["mcp", "gateway", "run"],
+      "env": {
+        "LOCALAPPDATA": "C:\\Users\\ronal\\AppData\\Local",
+        "ProgramData": "C:\\ProgramData",
+        "ProgramFiles": "C:\\Program Files"
+      }
+    }
+  }
+}
+```
+
+**Notas importantes:**
+- El `--name` evita contenedores duplicados
+- En Windows usar rutas absolutas como `C:\temp\crawl4ai-crawls`
+- La configuración completa incluye Graphiti MCP y Docker Gateway
+- Crear manualmente la carpeta `C:\temp\crawl4ai-crawls` si no existe
 
 ### 5. Reiniciar Claude Desktop
 - Cerrar completamente Claude Desktop

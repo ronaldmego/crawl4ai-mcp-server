@@ -1,8 +1,12 @@
-# Crawl4AI MCP Server
+# Crawl4AI MCP Server - Versión Personalizada
 
-🕷️ **A lightweight Model Context Protocol (MCP) server that exposes [Crawl4AI](https://docs.crawl4ai.com/) web scraping and crawling capabilities as tools for AI agents.**
+🕷️ **Un servidor MCP (Model Context Protocol) ligero que expone las capacidades de web scraping de [Crawl4AI](https://docs.crawl4ai.com/) como herramientas para agentes de IA.**
 
-Similar to Firecrawl's API but self-hosted and free. Perfect for integrating web scraping into your AI workflows with OpenAI Agents SDK, Cursor, Claude Code, and other MCP-compatible tools.
+**Fork personalizado** con correcciones de bugs y optimizaciones para uso local. Alternativa gratuita y auto-hospedada a Firecrawl's API. Perfecto para integrar web scraping en tus flujos de trabajo de IA con Claude Desktop, Cursor, y otras herramientas compatibles con MCP.
+
+## ⚠️ Importante: Usar Build Local
+
+**Este fork contiene correcciones críticas** que no están en la imagen original publicada. **Siempre construir localmente** para obtener la versión estable y funcional.
 
 ## Features
 
@@ -16,44 +20,72 @@ Similar to Firecrawl's API but self-hosted and free. Perfect for integrating web
 
 ## 🚀 Quick Start
 
-Choose between **Docker** (recommended) or **manual installation**:
+**⚠️ IMPORTANTE:** Usar siempre build local. La imagen publicada original tiene bugs críticos.
 
-### Option A: Docker (Recommended) 🐳
+### Opción Recomendada: Build Local 🐳
 
-Docker eliminates all setup complexity and provides a consistent environment:
-
-#### Option A1: Use Pre-built Image (Fastest) ⚡
+#### 1. Prerrequisitos
 ```bash
-# No setup required! Just pull and run the published image
-docker pull uysalsadi/crawl4ai-mcp-server:latest
+# Verificar Docker
+docker --version
 
-# Test it works
-python test-config.py
-
-# Use directly in MCP configurations (see examples below)
+# Verificar Git
+git --version
 ```
 
-#### Option A2: Build Yourself
+#### 2. Clonar y Construir
 ```bash
-# Clone the repository
-git clone https://github.com/uysalsadi/crawl4ai-mcp-server.git
+# Clonar este fork (con correcciones)
+git clone https://github.com/ronaldmego/crawl4ai-mcp-server.git
 cd crawl4ai-mcp-server
 
-# Quick build and test (simplified)
-docker build -f Dockerfile.simple -t crawl4ai-mcp .
-echo '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test", "version": "1.0"}}}' | docker run --rm -i crawl4ai-mcp
+# Construir imagen local (10-15 minutos)
+docker build -t crawl4ai-mcp:local .
 
-# Or use helper script (full build with Playwright)
+# O usar script helper
 ./docker-run.sh build
-./docker-run.sh test
-./docker-run.sh run
 ```
 
-**Docker Quick Commands:**
-- `./docker-run.sh build` - Build the image
-- `./docker-run.sh run` - Run MCP server (stdio mode)
-- `./docker-run.sh test` - Run smoke tests
-- `./docker-run.sh dev` - Development mode with shell access
+#### 3. Probar Funcionamiento
+```bash
+# Test completo
+./docker-run.sh test
+
+# Test manual básico
+echo '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test", "version": "1.0"}}}' | docker run --rm -i crawl4ai-mcp:local
+```
+
+#### 4. Configurar Claude Desktop
+
+**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "crawl4ai-mcp": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--name", "crawl4ai-mcp-claude",
+        "--volume",
+        "C:\\temp\\crawl4ai-crawls:/app/crawls",
+        "crawl4ai-mcp:local"
+      ],
+      "env": {
+        "CRAWL4AI_MCP_LOG": "INFO"
+      }
+    }
+  }
+}
+```
+
+**Comandos Docker Útiles:**
+- `./docker-run.sh build` - Construir imagen
+- `./docker-run.sh run` - Ejecutar servidor MCP (modo stdio)
+- `./docker-run.sh test` - Ejecutar tests
+- `./docker-run.sh dev` - Modo desarrollo con acceso shell
 
 ### Option B: Manual Installation
 

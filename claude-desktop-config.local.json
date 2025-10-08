@@ -6,8 +6,9 @@
         "run",
         "--rm",
         "-i",
+        "--name", "crawl4ai-mcp-claude",
         "--volume",
-        "/tmp/crawl4ai-crawls:/app/crawls",
+        "C:\\temp\\crawl4ai-crawls:/app/crawls",
         "crawl4ai-mcp:local"
       ],
       "env": {

@@ -2,6 +2,11 @@
 
 Configuración rápida del Crawl4AI MCP Server en una nueva laptop.
 
+Para referencia adicional, buscar en memoria graphiti asi:
+```bash
+ "group_id": "crawl4ai"
+ ```
+
 ## ✅ Opción 1: Setup Local (FUNCIONA - Recomendado)
 
 ### 1. Prerrequisitos

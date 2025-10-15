@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "crawl4ai-mcp": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--name", "crawl4ai-mcp-lmstudio",
+        "--volume",
+        "C:\\temp\\crawl4ai-crawls:/app/crawls",
+        "crawl4ai-mcp:local"
+      ],
+      "env": {
+        "CRAWL4AI_MCP_LOG": "INFO"
+      }
+    }
+  }
+}

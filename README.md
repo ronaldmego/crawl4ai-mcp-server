@@ -343,6 +343,88 @@ Both Cursor and Claude Code can use the Dockerized MCP server:
 
 ## 🐳 Docker Usage
 
+### Multiple MCP Clients (Claude Desktop, LM Studio, etc.)
+
+**⚠️ IMPORTANTE:** Si usas múltiples clientes MCP (Claude Desktop, LM Studio, Cursor, etc.) con la misma configuración Docker, obtendrás errores de conflicto de nombres de contenedor.
+
+#### Problema Común
+```
+docker: Error response from daemon: Conflict. The container name "/crawl4ai-mcp-claude" is already in use
+```
+
+#### Solución: Nombres Únicos por Cliente
+
+**Para Claude Desktop** (`claude-desktop-config.local.json`):
+```json
+{
+  "mcpServers": {
+    "crawl4ai-mcp": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "--name", "crawl4ai-mcp-claude",
+        "--volume", "C:\\temp\\crawl4ai-crawls:/app/crawls",
+        "crawl4ai-mcp:local"
+      ],
+      "env": {
+        "CRAWL4AI_MCP_LOG": "INFO"
+      }
+    }
+  }
+}
+```
+
+**Para LM Studio** (`lm-studio-config.local.json`):
+```json
+{
+  "mcpServers": {
+    "crawl4ai-mcp": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "--name", "crawl4ai-mcp-lmstudio",
+        "--volume", "C:\\temp\\crawl4ai-crawls:/app/crawls",
+        "crawl4ai-mcp:local"
+      ],
+      "env": {
+        "CRAWL4AI_MCP_LOG": "INFO"
+      }
+    }
+  }
+}
+```
+
+**Para Cursor** (`.cursor/mcp.json`):
+```json
+{
+  "mcpServers": {
+    "crawl4ai-mcp": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "--name", "crawl4ai-mcp-cursor",
+        "--volume", "C:\\temp\\crawl4ai-crawls:/app/crawls",
+        "crawl4ai-mcp:local"
+      ],
+      "env": {
+        "CRAWL4AI_MCP_LOG": "INFO"
+      }
+    }
+  }
+}
+```
+
+#### Ventajas de Esta Configuración
+- ✅ **Sin conflictos**: Cada cliente usa un nombre único de contenedor
+- ✅ **Datos compartidos**: Todos usan el mismo volumen para los crawls
+- ✅ **Ejecución simultánea**: Puedes usar múltiples clientes al mismo tiempo
+- ✅ **Fácil identificación**: Los nombres indican qué cliente está usando cada contenedor
+
+#### Archivos de Configuración Disponibles
+- `claude-desktop-config.local.json` - Configuración para Claude Desktop
+- `lm-studio-config.local.json` - Configuración para LM Studio  
+- `lm-studio-config-dynamic.json` - Configuración alternativa con nombres dinámicos
+
 ### Quick Start with Docker
 
 The Docker approach eliminates all manual setup and provides a consistent environment:
